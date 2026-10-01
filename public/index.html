@@ -498,10 +498,22 @@ body::after{
 }
 
 
-/* MULTIJUGADOR */
-#roomOverlay .panel{max-width:680px}
-#roomPlayers .badge{margin-left:6px;font-size:10px}
-.multiplayer-player-list{display:grid;gap:7px}
+/* ===== MODO ONLINE 2-4 JUGADORES ===== */
+.online-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.online-room{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#ffffff08}
+.online-code{font-size:28px;letter-spacing:6px;font-weight:950;text-align:center;padding:10px;color:var(--gold)}
+.online-status{min-height:22px;color:var(--muted);font-size:13px;margin-top:8px}
+.lobby-list{display:grid;gap:8px;margin:12px 0}
+.lobby-player{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:#ffffff08}
+.lobby-player .host{font-size:11px;color:var(--gold);font-weight:900;margin-left:auto}
+.online-panel{width:min(760px,94vw)}
+.online-players{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:14px 0}
+.online-player-card{padding:12px;border:1px solid var(--line);border-radius:13px;background:#ffffff08}
+.online-player-card.active{outline:2px solid var(--gold)}
+.online-player-card .mini{color:var(--muted);font-size:12px;margin-top:3px}
+.room-pill{font-weight:950;letter-spacing:2px;color:var(--gold)}
+@media(max-width:620px){.online-grid,.online-players{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -537,8 +549,14 @@ body::after{
             <button type="button" class="avatar-choice" data-avatar="🐼" aria-label="Panda">🐼</button>
           </div>
 
+          <label for="roomCode">Código de sala (solo para unirse)</label>
+          <input id="roomCode" maxlength="6" autocomplete="off" placeholder="Ej.: A7F3C2" style="text-transform:uppercase">
+
           <div id="playerError" class="error" aria-live="polite"></div>
-          <button class="btn primary full" type="submit">CONTINUAR ▶</button>
+          <div class="online-grid">
+            <button class="btn primary" id="createRoomBtn" type="button">🏠 CREAR SALA</button>
+            <button class="btn" id="joinRoomBtn" type="button">🔑 UNIRSE</button>
+          </div>
         </form>
       </div>
 
@@ -595,9 +613,9 @@ body::after{
         <div id="die" class="die">🎲</div>
         <button class="btn primary full" id="rollBtn">🎲 LANZAR DADO</button>
       </div>
-      <div class="card" id="playersCard">
-        <b>👥 Jugadores conectados</b>
-        <div id="livePlayers" class="status" style="min-height:auto;margin-top:8px">Sala no iniciada.</div>
+      <div class="card" id="onlinePlayersCard">
+        <b>🌐 Jugadores</b>
+        <div id="onlinePlayersList" class="status"></div>
       </div>
       <div class="card">
         <b>Estado de la partida</b>
@@ -688,29 +706,25 @@ body::after{
 </div>
 
 
-<!-- SALA MULTIJUGADOR -->
-<div id="roomOverlay" class="overlay hidden" role="dialog" aria-modal="true">
-  <section class="panel">
-    <div class="badge">MULTIJUGADOR EN VIVO · 2 A 4 JUGADORES</div>
-    <h2 style="margin-bottom:6px">🎮 Crear o unirse a una sala</h2>
-    <p style="color:var(--muted);line-height:1.5">Todos los jugadores de la misma sala verán el tablero, los turnos y <b>la misma pregunta simultáneamente</b>.</p>
-    <div class="row2">
-      <button id="createRoomBtn" class="btn primary" type="button">➕ CREAR SALA</button>
-      <button id="joinRoomBtn" class="btn" type="button">🔑 UNIRME A UNA SALA</button>
+
+<!-- SALA ONLINE -->
+<div id="onlineLobbyOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+  <section class="panel online-panel">
+    <div style="text-align:center">
+      <span class="badge">🌐 JUEGO ONLINE · 2 A 4 JUGADORES</span>
+      <h2 id="lobbyTitle">Sala de juego</h2>
+      <p style="color:var(--muted);margin-top:0">Comparte el código para que los demás jugadores se unan.</p>
+      <div id="lobbyCodeWrap" class="online-room">
+        <div style="color:var(--muted);font-size:12px;font-weight:800">CÓDIGO DE SALA</div>
+        <div id="lobbyCode" class="online-code">------</div>
+      </div>
     </div>
-    <div id="joinRoomBox" class="hidden" style="margin-top:14px">
-      <label>Código de sala</label>
-      <input id="roomCodeInput" maxlength="6" placeholder="Ej.: A7K2" style="text-transform:uppercase">
-      <button id="confirmJoinBtn" class="btn primary full" style="margin-top:10px" type="button">ENTRAR A LA SALA</button>
+    <div id="lobbyPlayers" class="lobby-list"></div>
+    <div id="lobbyStatus" class="online-status" style="text-align:center"></div>
+    <div class="online-grid">
+      <button id="startOnlineBtn" class="btn primary hidden" type="button">🎮 INICIAR JUEGO</button>
+      <button id="leaveRoomBtn" class="btn danger" type="button">⎋ SALIR DE LA SALA</button>
     </div>
-    <div id="roomInfo" class="hidden" style="margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#ffffff08">
-      <div style="font-size:13px;color:var(--muted)">CÓDIGO DE SALA</div>
-      <div id="roomCodeDisplay" style="font-size:38px;font-weight:950;letter-spacing:7px;text-align:center;margin:6px 0">----</div>
-      <div id="roomPlayers" style="line-height:1.7"></div>
-      <button id="startRoomBtn" class="btn primary full" style="margin-top:10px" type="button" disabled>🚀 INICIAR PARTIDA</button>
-      <p id="roomStatus" class="admin-note" style="margin-bottom:0"></p>
-    </div>
-    <div id="roomError" class="error"></div>
   </section>
 </div>
 
@@ -771,7 +785,6 @@ body::after{
   <div id="modal"></div>
 </dialog>
 
-<script src="/socket.io/socket.io.js"></script>
 <script>
 (()=>{"use strict";
 const $=id=>document.getElementById(id);
@@ -832,28 +845,207 @@ const playerForm=$("playerForm"),playerName=$("playerName"),playerError=$("playe
 const adminForm=$("adminForm"),adminKey=$("adminKey"),adminError=$("adminError");
 const accessTitle=$("accessTitle"),gameBrandTitle=$("gameBrandTitle"),titleInput=$("titleInput");
 const board=$("board"),die=$("die"),rollBtn=$("rollBtn"),scoreEl=$("score"),posEl=$("position"),
-playerLabel=$("playerLabel"),playerAvatarStat=$("playerAvatarStat"),statusEl=$("status"),livePlayers=$("livePlayers");
+playerLabel=$("playerLabel"),playerAvatarStat=$("playerAvatarStat"),statusEl=$("status");
 const qOverlay=$("questionOverlay"),eOverlay=$("eventOverlay"),
 qCourse=$("questionCourse"),qText=$("questionText"),optionsEl=$("options"),
 answerResult=$("answerResult"),continueQuestion=$("continueQuestion"),eventIcon=$("eventIcon"),eventType=$("eventType"),
 eventTitle=$("eventTitle"),eventMessage=$("eventMessage"),continueEvent=$("continueEvent"),
 restartFromEventBtn=$("restartFromEventBtn");
 const dlg=$("dialog"),modal=$("modal");
+const onlineLobbyOverlay=$("onlineLobbyOverlay"), lobbyCodeEl=$("lobbyCode"), lobbyPlayersEl=$("lobbyPlayers"),
+  lobbyStatusEl=$("lobbyStatus"), startOnlineBtn=$("startOnlineBtn"), leaveRoomBtn=$("leaveRoomBtn"),
+  roomCodeInput=$("roomCode"), createRoomBtn=$("createRoomBtn"), joinRoomBtn=$("joinRoomBtn"),
+  onlinePlayersList=$("onlinePlayersList");
+let onlineMode=false, onlineHost=false, onlineRoom="", onlinePlayerId="", onlineSocket=null;
+let onlinePlayers=[], onlineTurnIndex=0, onlineStarted=false, onlinePending=null, onlineRollTimer=null;
+function onlineWsUrl(){
+  const proto=location.protocol==="https:"?"wss":"ws";
+  return proto+"://"+location.host;
+}
+function onlineSetStatus(t){ if(lobbyStatusEl) lobbyStatusEl.textContent=t; }
+function onlineConnect(onOpen){
+  if(onlineSocket && onlineSocket.readyState===WebSocket.OPEN){onOpen();return;}
+  onlineSocket=new WebSocket(onlineWsUrl());
+  onlineSocket.addEventListener("open",()=>onOpen());
+  onlineSocket.addEventListener("message",e=>{try{handleOnlineMessage(JSON.parse(e.data))}catch(err){console.error(err)}});
+  onlineSocket.addEventListener("close",()=>{
+    if(onlineMode && !onlineStarted){onlineSetStatus("La conexión se cerró. Vuelve a intentar.");}
+    if(onlineMode && onlineStarted){setStatus("⚠️ Se perdió la conexión con la sala.");}
+  });
+  onlineSocket.addEventListener("error",()=>onlineSetStatus("No se pudo conectar con el servidor."));
+}
+function onlineSend(type,data={}){
+  if(onlineSocket && onlineSocket.readyState===WebSocket.OPEN) onlineSocket.send(JSON.stringify({type,...data}));
+}
+function openLobby(){
+  onlineLobbyOverlay.classList.remove("hidden");
+  startOnlineBtn.classList.add("hidden");
+}
+function renderLobby(){
+  lobbyCodeEl.textContent=onlineRoom||"------";
+  lobbyPlayersEl.innerHTML=onlinePlayers.map((p,i)=>`
+    <div class="lobby-player">
+      <span style="font-size:25px">${escapeHTML(p.avatar||"🤖")}</span>
+      <div><b>${escapeHTML(p.name)}</b><div style="color:var(--muted);font-size:12px">Jugador ${i+1}</div></div>
+      ${p.host?'<span class="host">ANFITRIÓN</span>':""}
+    </div>`).join("");
+  startOnlineBtn.classList.toggle("hidden",!(onlineHost && onlinePlayers.length>=2 && !onlineStarted));
+  startOnlineBtn.textContent="🎮 INICIAR JUEGO ("+onlinePlayers.length+"/4)";
+}
+function renderOnlinePlayers(){
+  if(!onlineMode){onlinePlayersList.innerHTML="";return}
+  onlinePlayersList.innerHTML=onlinePlayers.map((p,i)=>{
+    const active=i===onlineTurnIndex;
+    return `<div style="padding:4px 0;${active?"color:var(--gold);font-weight:900":""}">${p.avatar||"🤖"} ${escapeHTML(p.name)}${active?" ◀ TURNO":""}<br><small style="color:var(--muted)">⭐ ${p.score||0} · 📍 ${p.pos||1}</small></div>`;
+  }).join("");
+}
+function onlineRenderState(msg){
+  const wasStarted=onlineStarted;
+  onlinePlayers=Array.isArray(msg.players)?msg.players:[];
+  onlineTurnIndex=Number(msg.turnIndex||0);
+  onlineStarted=!!msg.started;
+  renderOnlinePlayers();
+  if(msg.config){
+    if(Array.isArray(msg.config.questions)){questions=msg.config.questions;saveQuestions();}
+    if(typeof msg.config.title==="string" && msg.config.title){gameTitle=msg.config.title;localStorage.setItem(STORAGE_TITLE,gameTitle);syncTitles();}
+    if(typeof msg.config.theme==="string"){currentTheme=msg.config.theme;applyTheme();}
+  }
+  const me=onlinePlayers.find(p=>p.id===onlinePlayerId);
+  if(me){
+    state={pos:me.pos||1,score:me.score||0,skip:!!me.skip,visited:Array.isArray(me.visited)?me.visited:[1],player:me.name,avatar:me.avatar||"🤖"};
+  }
+  if(onlineStarted){
+    accessScreen.classList.add("hidden");
+    onlineLobbyOverlay.classList.add("hidden");
+    gameShell.classList.remove("hidden");
+    renderOnlineBoard();
+    const myTurn=onlinePlayers[onlineTurnIndex]&&onlinePlayers[onlineTurnIndex].id===onlinePlayerId;
+    rollBtn.disabled=!myTurn || !!onlinePending;
+    setStatus(myTurn?"🎯 Es tu turno. Lanza el dado.":"⏳ Turno de "+(onlinePlayers[onlineTurnIndex]?.name||"otro jugador")+".");
+  }else{
+    renderLobby();
+  }
+}
+function renderOnlineBoard(){
+  board.innerHTML="";
+  const piecesByCell={};
+  onlinePlayers.forEach((p,i)=>{(piecesByCell[p.pos] ||= []).push(p);});
+  for(let n=1;n<=30;n++){
+    const c=document.createElement("div");
+    const someone=onlinePlayers.some(p=>(p.visited||[]).includes(n));
+    c.className="cell"+(onlinePlayers.some(p=>p.id===onlinePlayerId&&p.pos===n)?" current":"")+(someone?" visited":"");
+    const pcs=(piecesByCell[n]||[]).map((p,i)=>`<span class="piece" style="transform:translate(calc(-50% + ${(i-(piecesByCell[n].length-1)/2)*26}px),-50%)">${escapeHTML(p.avatar||"🤖")}</span>`).join("");
+    c.innerHTML='<span class="num">'+n+'</span>'+pcs;
+    board.appendChild(c);
+  }
+  scoreEl.textContent=state.score;posEl.textContent=state.pos;playerLabel.textContent=state.player||"Jugador";playerAvatarStat.textContent=state.avatar||"🤖";
+}
+function onlineStartIntro(){
+  introAvatar.textContent=state.avatar||"🤖";
+  introWelcome.textContent="¡Listo, "+state.player+"! Prepárate para el desafío";
+  introOverlay.classList.remove("hidden");
+}
+function handleOnlineMessage(msg){
+  if(msg.type==="created"||msg.type==="joined"){
+    onlineMode=true; onlineRoom=msg.room; onlinePlayerId=msg.playerId; onlineHost=!!msg.host;
+    onlineStarted=false; onlinePending=null; openLobby(); onlineSetStatus(onlineHost?"Sala creada. Esperando jugadores...":"Te has unido a la sala.");
+    if(msg.players)onlinePlayers=msg.players; renderLobby(); return;
+  }
+  if(msg.type==="lobby"||msg.type==="state"){
+    const wasStarted=onlineStarted;
+    onlineRenderState(msg);
+    if(msg.type==="state" && msg.started && !wasStarted){ onlineStartIntro(); }
+    return;
+  }
+  if(msg.type==="rolled"){
+    die.textContent=["⚀","⚁","⚂","⚃","⚄","⚅"][Number(msg.value)-1]||"🎲";
+    die.classList.remove("rolling"); setStatus("🎲 "+escapeHTML(msg.playerName)+" sacó "+msg.value+".");
+    return;
+  }
+  if(msg.type==="question"){
+    const isMyQuestion=msg.playerId===onlinePlayerId;
+    onlinePending=isMyQuestion?{kind:"question",questionIndex:msg.questionIndex}:{kind:"watchQuestion",questionIndex:msg.questionIndex,playerId:msg.playerId};
+    showQuestionOnline(msg.questionIndex,msg.playerName||"otro jugador",isMyQuestion);
+    return;
+  }
+  if(msg.type==="event"){
+    onlinePending={kind:"event",move:Number(msg.move||0),extra:!!msg.extra};
+    showEvent({icon:msg.icon,type:msg.eventType,title:msg.title,msg:msg.message,move:msg.move,extra:msg.extra},true);
+    return;
+  }
+  if(msg.type==="skipTurn"){
+    onlinePending={kind:"event",move:0,extra:false};
+    showEvent({icon:"⏸️",type:"TURNO PERDIDO",title:"Este turno no juegas",msg:"La penalización ya fue cumplida."},true);
+    return;
+  }
+  if(msg.type==="answerResult"){
+    optionsEl.querySelectorAll("button").forEach(x=>x.disabled=true);
+    if(msg.playerId===onlinePlayerId) continueQuestion.classList.remove("hidden");
+    answerResult.classList.remove("hidden");
+    answerResult.classList.remove("correct-anim","wrong-anim");
+    if(msg.correct){
+      answerResult.innerHTML="✅ CORRECTA"; answerResult.classList.add("correct-anim");
+      answerResult.style.background="#14532d88"; answerResult.style.border="1px solid #22c55e"; answerResult.style.color="#dcfce7";
+      burstConfetti();sparkleBurst();setStatus((msg.playerName||"El jugador")+" respondió correctamente. +20 puntos.");
+    }else{
+      const q=questions[msg.questionIndex], letras=["A","B","C","D"];
+      answerResult.innerHTML="❌ INCORRECTA<br><span style=\"display:block;margin-top:8px;font-size:16px;font-weight:700\">Respuesta correcta: "+letras[q.a]+") "+escapeHTML(q.o[q.a])+"</span>";
+      answerResult.classList.add("wrong-anim");answerResult.style.background="#7f1d1d88";answerResult.style.border="1px solid #ef4444";answerResult.style.color="#fee2e2";
+      setStatus((msg.playerName||"El jugador")+" respondió incorrectamente. -1 punto.");
+    }
+    return;
+  }
+  if(msg.type==="turnAdvanced"){
+    // The player who answered and all observers leave the question together.
+    onlinePending=null;
+    hideOverlays();
+    const next=onlinePlayers[msg.turnIndex];
+    if(next && next.id===onlinePlayerId){
+      rollBtn.disabled=false;
+      setStatus("🎯 Es tu turno. Lanza el dado.");
+    }else if(next){
+      rollBtn.disabled=true;
+      setStatus("⏳ Turno de "+escapeHTML(next.name)+".");
+    }
+    return;
+  }
+  if(msg.type==="gameOver"){
+    hideOverlays(); rollBtn.disabled=true;
+    showEvent({icon:"🏆",type:"META",title:"¡Partida finalizada!",msg:msg.message||"La partida ha terminado."},false);
+    return;
+  }
+  if(msg.type==="error"){
+    playerError.textContent=msg.message||"No se pudo completar la acción.";
+    onlineSetStatus(msg.message||"Error");
+  }
+}
+function showQuestionOnline(index,playerName="otro jugador",canAnswer=false){
+  const q=questions[index]; if(!q)return;
+  hideOverlays();
+  qCourse.textContent=q.c.toUpperCase();
+  qText.innerHTML=(canAnswer?"":("<div style=\"font-size:14px;color:var(--gold);margin-bottom:8px\">👀 Pregunta de "+escapeHTML(playerName)+" — observa y aprende</div>"))+escapeHTML(q.q)+imgHTML(q.qi,"question-media","Imagen de la pregunta");
+  optionsEl.innerHTML=""; answerResult.className="hidden"; answerResult.textContent=""; continueQuestion.classList.add("hidden");
+  q.o.forEach((txt,i)=>{
+    const b=document.createElement("button");b.type="button";b.className="option";b.disabled=!canAnswer;
+    const media=(q.oi&&q.oi[i])?imgHTML(q.oi[i],"option-media","Imagen de la alternativa "+String.fromCharCode(65+i)):"";
+    b.innerHTML=media+'<span><b>'+String.fromCharCode(65+i)+'.</b> '+escapeHTML(txt)+'</span>';
+    if(canAnswer)b.addEventListener("click",()=>onlineSend("answer",{index:i}));
+    optionsEl.appendChild(b);
+  });
+  qOverlay.classList.remove("hidden");
+}
+function requestRollOnline(){
+  if(!onlineMode || !onlineStarted)return;
+  const me=onlinePlayers[onlineTurnIndex];
+  if(!me || me.id!==onlinePlayerId){setStatus("⏳ Espera tu turno.");return;}
+  rollBtn.disabled=true; onlineSend("roll");
+}
+
 
 
 let selectedAvatar="🤖";
 let currentTheme=localStorage.getItem(STORAGE_THEME)||"clasico";
 let customBackground=localStorage.getItem(STORAGE_BG)||"";
-
-// MULTIJUGADOR EN VIVO
-const socket=typeof io!=="undefined"?io({transports:["polling","websocket"],reconnection:true,reconnectionAttempts:10,reconnectionDelay:1000}):null;
-let multiplayer=false;
-let roomCode="";
-let roomHost=false;
-let mySocketId="";
-let roomState=null;
-let pendingQuestion=null;
-
 
 function applyTheme(){
   document.body.dataset.theme=currentTheme;
@@ -885,7 +1077,7 @@ function syncTitles(){
   titleInput.value=gameTitle;
 }
 function saveGame(){localStorage.setItem(STORAGE_STATE,JSON.stringify(state))}
-function saveQuestions(){localStorage.setItem(STORAGE_Q,JSON.stringify(questions)); if(socket)socket.emit("admin-save-questions",{questions})}
+function saveQuestions(){localStorage.setItem(STORAGE_Q,JSON.stringify(questions))}
 function goAccess(){
   // Detiene cualquier animación o lanzamiento activo.
   if(window.resetRollTimer){
@@ -928,143 +1120,15 @@ function enterPlayer(name){
   if(clean.length<2){playerError.textContent="Escribe tu nombre para comenzar.";playerName.focus();return}
   state={pos:1,score:0,skip:false,visited:[1],player:clean.slice(0,35),avatar:selectedAvatar||"🤖"};
   saveGame();
+
   accessScreen.classList.add("hidden");
   adminShell.classList.add("hidden");
   gameShell.classList.add("hidden");
-  openRoomChooser();
-}
 
-function openRoomChooser(){
-  $("roomOverlay").classList.remove("hidden");
-  $("joinRoomBox").classList.add("hidden");
-  $("roomInfo").classList.add("hidden");
-  $("roomError").textContent="";
-  $("roomCodeInput").value="";
+  introAvatar.textContent=state.avatar;
+  introWelcome.textContent="¡Listo, "+state.player+"! Prepárate para el desafío";
+  introOverlay.classList.remove("hidden");
 }
-function roomError(msg){$("roomError").textContent=msg||""}
-function renderRoomPlayers(players=[],turnId="",started=false){
-  const box=$("roomPlayers");
-  box.innerHTML=players.map((pl,i)=>`<div>${pl.avatar||"🤖"} <b>${escapeHTML(pl.name)}</b>${pl.host?" 👑":""}${pl.id===turnId?' <span class=\"badge\">TURNO</span>':''}</div>`).join("");
-  const startBtn=$("startRoomBtn");
-  startBtn.classList.toggle("hidden",!roomHost||started);
-  startBtn.disabled=!(roomHost&&!started&&players.length>=2);
-  startBtn.title=players.length<2?"Se necesitan al menos 2 jugadores para iniciar.":"Iniciar partida";
-  $("roomStatus").textContent=started?"Partida iniciada.":(players.length<2?"Espera al menos 2 jugadores. El botón de inicio se habilitará al entrar otro jugador.":"Ya puedes iniciar la partida.");
-}
-function enterMultiplayerGame(data){
-  multiplayer=true; roomCode=data.roomCode; roomHost=!!data.host; roomState=data.state;
-  $("roomOverlay").classList.add("hidden");
-  gameShell.classList.remove("hidden");
-  renderMultiplayerState(data.state);
-  setStatus(data.state.started?"Partida en vivo. Espera tu turno.":"Sala creada.");
-}
-function renderMultiplayerState(rs){
-  if(!rs)return;
-  roomState=rs;
-  const me=rs.players.find(p=>p.id===mySocketId)||rs.players.find(p=>p.name===state.player);
-  if(me){state.pos=me.pos;state.score=me.score;state.skip=me.skip;state.player=me.name;state.avatar=me.avatar;}
-  board.innerHTML="";
-  for(let n=1;n<=30;n++){
-    const playersHere=rs.players.filter(p=>p.pos===n);
-    const c=document.createElement("div");
-    c.className="cell"+(playersHere.some(p=>p.id===mySocketId)?" current":"")+(rs.visited&&rs.visited.includes(n)?" visited":"");
-    const pieces=playersHere.map(p=>`<span class="piece" title="${escapeHTML(p.name)}" style="font-size:${playersHere.length>1?"27px":"34px"};margin-left:${(playersHere.indexOf(p)-(playersHere.length-1)/2)*24}px">${p.avatar||"🤖"}</span>`).join("");
-    c.innerHTML='<span class="num">'+n+'</span>'+pieces;
-    board.appendChild(c);
-  }
-  scoreEl.textContent=me?me.score:0;
-  posEl.textContent=me?me.pos:1;
-  if(livePlayers) livePlayers.innerHTML=rs.players.map(p=>`${p.avatar||"🤖"} <b>${escapeHTML(p.name)}</b>${p.id===rs.turnId?" 🎯":""}<br><small>${p.score} pts · casilla ${p.pos}</small>`).join("<hr style=\"border:0;border-top:1px solid var(--line);margin:7px 0\">");
-  playerLabel.textContent=me?me.name:"Jugador";
-  playerAvatarStat.textContent=me?(me.avatar||"🤖"):"🤖";
-  rollBtn.disabled=!rs.started || rs.turnId!==mySocketId || !!rs.activeQuestion || !!rs.activeEvent;
-  if(rs.started){
-    const turn=rs.players.find(p=>p.id===rs.turnId);
-    setStatus(turn?`🎯 Turno de ${turn.name}${turn.id===mySocketId?" — ¡lanza el dado!":" — espera tu turno."}`:"Partida en vivo.");
-  }
-}
-function showRemoteQuestion(q,answerData=null){
-  hideOverlays();
-  qCourse.textContent=String(q.c||"").toUpperCase();
-  qText.innerHTML=escapeHTML(q.q)+imgHTML(q.qi||"","question-media","Imagen de la pregunta");
-  optionsEl.innerHTML="";
-  answerResult.className="hidden";answerResult.textContent="";continueQuestion.classList.add("hidden");
-  q.o.forEach((txt,i)=>{
-    const b=document.createElement("button");b.type="button";b.className="option";
-    const media=q.oi&&q.oi[i]?imgHTML(q.oi[i],"option-media","Imagen de la alternativa "+String.fromCharCode(65+i)):"";
-    b.innerHTML=media+'<span><b>'+String.fromCharCode(65+i)+'.</b> '+escapeHTML(txt)+'</span>';
-    b.disabled=!!answerData || (roomState&&roomState.turnId!==mySocketId);
-    b.addEventListener("click",()=>socket.emit("answer-question",{roomCode,answer:i}));
-    optionsEl.appendChild(b);
-  });
-  if(answerData){
-    optionsEl.querySelectorAll("button").forEach(x=>x.disabled=true);
-    answerResult.classList.remove("hidden");
-    answerResult.classList.add(answerData.correct?"correct-anim":"wrong-anim");
-    answerResult.style.background=answerData.correct?"#14532d88":"#7f1d1d88";
-    answerResult.style.border=answerData.correct?"1px solid #22c55e":"1px solid #ef4444";
-    answerResult.style.color=answerData.correct?"#dcfce7":"#fee2e2";
-    answerResult.innerHTML=answerData.correct?"✅ CORRECTA":`❌ INCORRECTA<br><span style="display:block;margin-top:8px;font-size:16px;font-weight:700">Respuesta correcta: ${["A","B","C","D"][q.a]}) ${escapeHTML(q.o[q.a])}</span>`;
-    if(answerData.correct)burstConfetti(); else sparkleBurst();
-    continueQuestion.classList.remove("hidden");
-  }
-  qOverlay.classList.remove("hidden");
-}
-
-if(socket){
-  socket.on("connect",()=>{
-    mySocketId=socket.id;
-    const b=$("createRoomBtn"); if(b) b.disabled=false;
-    const j=$("confirmJoinBtn"); if(j) j.disabled=false;
-    roomError("");
-  });
-  socket.on("connect_error",err=>{
-    roomError("No se pudo conectar al servidor multijugador. Espera unos segundos y vuelve a intentar.");
-  });
-  socket.on("disconnect",()=>{
-    mySocketId="";
-    roomError("Conexión en vivo perdida. Reconectando…");
-  });
-  socket.on("room-created",data=>{roomCode=data.roomCode;roomHost=true;$("roomInfo").classList.remove("hidden");$("roomCodeDisplay").textContent=roomCode;renderRoomPlayers(data.players,data.state.turnId,false);roomError("");});
-  socket.on("room-joined",data=>{roomCode=data.roomCode;roomHost=false;$("roomInfo").classList.remove("hidden");$("roomCodeDisplay").textContent=roomCode;renderRoomPlayers(data.players,data.state.turnId,false);roomError("");});
-  socket.on("room-update",data=>{renderRoomPlayers(data.players,data.state.turnId,data.state.started);if(data.state.started)renderMultiplayerState(data.state);});
-  socket.on("game-started",data=>{enterMultiplayerGame(data);});
-  socket.on("state-update",data=>{renderMultiplayerState(data);});
-  socket.on("dice-rolled",data=>{ if(data.playerId===mySocketId){ die.textContent=["⚀","⚁","⚂","⚃","⚄","⚅"][data.value-1]; } else { setStatus(`🎲 ${data.playerName} lanzó el dado y obtuvo ${data.value}.`); } });
-  socket.on("server-config",cfg=>{ if(cfg.title){gameTitle=cfg.title;localStorage.setItem(STORAGE_TITLE,gameTitle);syncTitles();} if(cfg.theme){currentTheme=cfg.theme;localStorage.setItem(STORAGE_THEME,currentTheme);applyTheme();} });
-  socket.on("question-start",data=>{pendingQuestion=data;showRemoteQuestion(data.question);setStatus(`❓ ${data.playerName} cayó en una casilla de pregunta. Todos pueden verla.`);});
-  socket.on("question-result",data=>{pendingQuestion=data;showRemoteQuestion(data.question,data);setStatus(`${data.playerName} respondió ${data.correct?"correctamente":"incorrectamente"}.`);});
-  socket.on("event-start",data=>{hideOverlays();showEvent(data.event,true);setStatus(data.message||"Evento de casilla.");});
-  socket.on("event-resolved",data=>{hideOverlays();renderMultiplayerState(data.state);});
-  socket.on("turn-changed",data=>{if(data.state)renderMultiplayerState(data.state);});
-  socket.on("game-finished",data=>{renderMultiplayerState(data.state);showEvent({icon:"🏆",type:"META",title:"¡Partida finalizada!",msg:data.message||"Se completó el recorrido."},false);});
-  socket.on("server-questions",data=>{if(Array.isArray(data.questions)){questions=data.questions;saveQuestions();}});
-  socket.on("room-error",msg=>roomError(msg));
-}
-$("createRoomBtn").addEventListener("click",()=>{
-  if(!socket)return roomError("No se pudo conectar al servidor.");
-  const send=()=>{
-    socket.emit("create-room",{name:state.player,avatar:state.avatar});
-    $("roomInfo").classList.remove("hidden");
-    $("roomCodeDisplay").textContent="GENERANDO…";
-    $("roomStatus").textContent="Conectando con el servidor…";
-  };
-  if(socket.connected) send();
-  else { roomError("Conectando al servidor…"); socket.once("connect",send); socket.connect(); }
-});
-$("joinRoomBtn").addEventListener("click",()=>$("joinRoomBox").classList.toggle("hidden"));
-$("confirmJoinBtn").addEventListener("click",()=>{
-  const code=$("roomCodeInput").value.trim().toUpperCase();
-  if(!socket)return roomError("No se pudo conectar al servidor.");
-  if(!/^[A-Z0-9]{4,6}$/.test(code))return roomError("Escribe un código válido.");
-  const send=()=>socket.emit("join-room",{roomCode:code,name:state.player,avatar:state.avatar});
-  if(socket.connected) send(); else { roomError("Conectando al servidor…"); socket.once("connect",send); socket.connect(); }
-});
-$("startRoomBtn").addEventListener("click",()=>{
-  if(!socket||!socket.connected)return roomError("Espera a que se conecte el servidor.");
-  if(!roomCode)return roomError("Primero crea o únete a una sala.");
-  socket.emit("start-game",{roomCode});
-});
 
 startNowBtn.addEventListener("click",()=>{
   introOverlay.classList.add("hidden");
@@ -1072,9 +1136,19 @@ startNowBtn.addEventListener("click",()=>{
   playerLabel.textContent=state.player;
   playerAvatarStat.textContent=state.avatar||"🤖";
   die.textContent="🎲";
-  rollBtn.disabled=false;
-  render();
-  setStatus("¡Comienza la misión, "+state.player+"! Lanza el dado.");
+  if(onlineMode && onlineStarted){
+    // En modo online el servidor determina quién tiene el turno.
+    // Al cerrar la bienvenida no debemos bloquear el dado del jugador que inicia.
+    const me=onlinePlayers[onlineTurnIndex];
+    const myTurn=!!me && me.id===onlinePlayerId;
+    rollBtn.disabled=!myTurn || !!onlinePending;
+    renderOnlineBoard();
+    setStatus(myTurn?"🎯 Es tu turno. ¡Lanza el dado!":"⏳ Turno de "+(me?.name||"otro jugador")+".");
+  }else{
+    rollBtn.disabled=false;
+    render();
+    setStatus("¡Comienza la misión, "+state.player+"! Lanza el dado.");
+  }
   sparkleBurst();
   window.scrollTo({top:0,behavior:"smooth"});
 });
@@ -1085,7 +1159,26 @@ function enterAdmin(){
   adminShell.classList.remove("hidden");
   renderAdmin();
 }
-playerForm.addEventListener("submit",e=>{e.preventDefault();enterPlayer(playerName.value)});
+playerForm.addEventListener("submit",e=>{e.preventDefault();createRoomBtn.click();});
+createRoomBtn.addEventListener("click",()=>{
+  const clean=(playerName.value||"").trim().replace(/\s+/g," ");
+  if(clean.length<2){playerError.textContent="Escribe tu nombre para crear la sala.";playerName.focus();return}
+  playerError.textContent="";
+  onlineConnect(()=>onlineSend("createRoom",{name:clean.slice(0,35),avatar:selectedAvatar||"🤖",config:{title:gameTitle,theme:currentTheme,questions}}));
+});
+joinRoomBtn.addEventListener("click",()=>{
+  const clean=(playerName.value||"").trim().replace(/\s+/g," ");
+  const code=(roomCodeInput.value||"").trim().toUpperCase();
+  if(clean.length<2){playerError.textContent="Escribe tu nombre para unirte.";playerName.focus();return}
+  if(!/^[A-Z0-9]{6}$/.test(code)){playerError.textContent="Escribe un código de sala de 6 caracteres.";roomCodeInput.focus();return}
+  playerError.textContent="";
+  onlineConnect(()=>onlineSend("joinRoom",{room:code,name:clean.slice(0,35),avatar:selectedAvatar||"🤖"}));
+});
+startOnlineBtn.addEventListener("click",()=>onlineSend("start"));
+leaveRoomBtn.addEventListener("click",()=>{
+  onlineSend("leave"); onlineMode=false;onlineStarted=false;onlineRoom="";onlinePlayerId="";onlineHost=false;onlinePending=null;
+  onlineLobbyOverlay.classList.add("hidden");if(onlineSocket){onlineSocket.close();onlineSocket=null;}goAccess();
+});
 adminForm.addEventListener("submit",e=>{
   e.preventDefault();
   if(adminKey.value!==ADMIN_KEY){adminError.textContent="Clave incorrecta.";adminKey.select();return}
@@ -1113,7 +1206,6 @@ const events={
 };
 
 function render(){
-  if(multiplayer&&roomState){renderMultiplayerState(roomState);return;}
   board.innerHTML="";
   for(let n=1;n<=30;n++){
     const c=document.createElement("div");
@@ -1186,7 +1278,7 @@ function showQuestion(){
         answerResult.style.background="#14532d88";
         answerResult.style.border="1px solid #22c55e";
         answerResult.style.color="#dcfce7";
-        setStatus("✅ Respuesta correcta. +20 puntos.");
+        setStatus((msg.playerName||"El jugador")+" respondió correctamente. +20 puntos.");
       }else{
         state.score=Math.max(0,state.score-1);
         const letras=["A","B","C","D"];
@@ -1196,7 +1288,7 @@ function showQuestion(){
         answerResult.style.background="#7f1d1d88";
         answerResult.style.border="1px solid #ef4444";
         answerResult.style.color="#fee2e2";
-        setStatus("❌ Respuesta incorrecta. -1 punto.");
+        setStatus((msg.playerName||"El jugador")+" respondió incorrectamente. -1 punto.");
       }
       render();
     });
@@ -1221,24 +1313,16 @@ function resolveCell(){
   if(e.skip)state.skip=true;
   render();showEvent(e);
 }
-continueQuestion.addEventListener("click",()=>{
-  if(multiplayer){socket.emit("continue-question",{roomCode});return;}
-  hideOverlays();rollBtn.disabled=false;setStatus("Continúa la partida. Lanza nuevamente.");
-});
+continueQuestion.addEventListener("click",()=>{if(onlineMode){hideOverlays();onlinePending=null;onlineSend("continueQuestion");return;}hideOverlays();rollBtn.disabled=false;setStatus("Continúa la partida. Lanza nuevamente.")});
 continueEvent.addEventListener("click",()=>{
-  if(multiplayer){socket.emit("continue-event",{roomCode});return;}
+  if(onlineMode){hideOverlays();onlinePending=null;onlineSend("continueEvent");return;}
   const move=Number(continueEvent.dataset.move||0),extra=continueEvent.dataset.extra==="1";
   hideOverlays();
   if(move)moveTo(state.pos+move,()=>{rollBtn.disabled=false;setStatus("Ahora estás en la casilla "+state.pos+". Lanza nuevamente.")});
   else{rollBtn.disabled=false;setStatus(extra?"🎲 Tienes un lanzamiento extra.":"Continúa la partida. Lanza nuevamente.")}
 });
 rollBtn.addEventListener("click",()=>{
-  if(multiplayer){
-    if(!roomState||roomState.turnId!==mySocketId)return;
-    rollBtn.disabled=true;
-    socket.emit("roll",{roomCode});
-    return;
-  }
+  if(onlineMode){hideOverlays();requestRollOnline();return;}
   hideOverlays();
   if(state.skip){
     state.skip=false;saveGame();
@@ -1260,6 +1344,7 @@ rollBtn.addEventListener("click",()=>{
 
 /* PLAYER BUTTONS */
 function resetCurrentGame(){
+  if(onlineMode){ onlineSend("reset"); return; }
   const name=(state.player||"Jugador").trim()||"Jugador";
   const avatar=state.avatar||"🤖";
   state={pos:1,score:0,skip:false,visited:[1],player:name,avatar:avatar};
@@ -1292,7 +1377,7 @@ $("resetGameBtn").addEventListener("click",resetCurrentGame);
 restartFromEventBtn.addEventListener("click",resetCurrentGame);
 
 $("exitPlayerBtn").addEventListener("click",()=>{
-  if(multiplayer&&socket){socket.emit("leave-room",{roomCode});multiplayer=false;roomState=null;roomCode="";roomHost=false;}
+  if(onlineMode){ onlineSend("leave"); onlineMode=false; if(onlineSocket){onlineSocket.close();onlineSocket=null;} goAccess(); return; }
   if(window.resetRollTimer){
     clearInterval(window.resetRollTimer);
     window.resetRollTimer=null;
@@ -1394,7 +1479,7 @@ $("closeDialog").addEventListener("click",()=>dlg.close());
 $("saveTitleBtn").addEventListener("click",()=>{
   const t=titleInput.value.trim();
   if(!t){alert("Escribe un título para el juego.");return}
-  gameTitle=t.slice(0,60);localStorage.setItem(STORAGE_TITLE,gameTitle);syncTitles(); if(socket)socket.emit("admin-save-config",{title:gameTitle,theme:currentTheme});
+  gameTitle=t.slice(0,60);localStorage.setItem(STORAGE_TITLE,gameTitle);syncTitles();
   alert("Título guardado correctamente.");
 });
 function editQuestion(i){

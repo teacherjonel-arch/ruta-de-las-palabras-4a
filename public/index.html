@@ -707,7 +707,7 @@ body::after{
       <div style="font-size:13px;color:var(--muted)">CÓDIGO DE SALA</div>
       <div id="roomCodeDisplay" style="font-size:38px;font-weight:950;letter-spacing:7px;text-align:center;margin:6px 0">----</div>
       <div id="roomPlayers" style="line-height:1.7"></div>
-      <button id="startRoomBtn" class="btn primary full hidden" style="margin-top:10px" type="button">🚀 INICIAR PARTIDA</button>
+      <button id="startRoomBtn" class="btn primary full" style="margin-top:10px" type="button" disabled>🚀 INICIAR PARTIDA</button>
       <p id="roomStatus" class="admin-note" style="margin-bottom:0"></p>
     </div>
     <div id="roomError" class="error"></div>
@@ -945,8 +945,11 @@ function roomError(msg){$("roomError").textContent=msg||""}
 function renderRoomPlayers(players=[],turnId="",started=false){
   const box=$("roomPlayers");
   box.innerHTML=players.map((pl,i)=>`<div>${pl.avatar||"🤖"} <b>${escapeHTML(pl.name)}</b>${pl.host?" 👑":""}${pl.id===turnId?' <span class=\"badge\">TURNO</span>':''}</div>`).join("");
-  $("startRoomBtn").classList.toggle("hidden",!(roomHost&&!started&&players.length>=2));
-  $("roomStatus").textContent=started?"Partida iniciada.":(players.length<2?"Espera al menos 2 jugadores.":"Ya puedes iniciar la partida.");
+  const startBtn=$("startRoomBtn");
+  startBtn.classList.toggle("hidden",!roomHost||started);
+  startBtn.disabled=!(roomHost&&!started&&players.length>=2);
+  startBtn.title=players.length<2?"Se necesitan al menos 2 jugadores para iniciar.":"Iniciar partida";
+  $("roomStatus").textContent=started?"Partida iniciada.":(players.length<2?"Espera al menos 2 jugadores. El botón de inicio se habilitará al entrar otro jugador.":"Ya puedes iniciar la partida.");
 }
 function enterMultiplayerGame(data){
   multiplayer=true; roomCode=data.roomCode; roomHost=!!data.host; roomState=data.state;

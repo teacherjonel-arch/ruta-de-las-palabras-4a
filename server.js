@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: true, credentials: true } });
+const io = new Server(server, { cors: { origin: true, credentials: true }, transports: ["polling", "websocket"], pingInterval: 25000, pingTimeout: 20000 });
 const PORT = process.env.PORT || 10000;
 const DATA_DIR = path.join(__dirname, 'data');
 const QUESTIONS_FILE = path.join(DATA_DIR, 'questions.json');

@@ -26,3 +26,7 @@ npm install
 npm start
 ```
 Abrir `http://localhost:10000`.
+
+
+## Corrección multijugador
+La conexión Socket.IO usa polling/websocket y espera la conexión antes de crear o unirse a una sala, para evitar que el código quede en "GENERANDO".

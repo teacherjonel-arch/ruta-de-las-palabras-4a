@@ -846,7 +846,7 @@ let currentTheme=localStorage.getItem(STORAGE_THEME)||"clasico";
 let customBackground=localStorage.getItem(STORAGE_BG)||"";
 
 // MULTIJUGADOR EN VIVO
-const socket=typeof io!=="undefined"?io():null;
+const socket=typeof io!=="undefined"?io({transports:["polling","websocket"],reconnection:true,reconnectionAttempts:10,reconnectionDelay:1000}):null;
 let multiplayer=false;
 let roomCode="";
 let roomHost=false;
@@ -1012,7 +1012,19 @@ function showRemoteQuestion(q,answerData=null){
 }
 
 if(socket){
-  socket.on("connect",()=>{mySocketId=socket.id;});
+  socket.on("connect",()=>{
+    mySocketId=socket.id;
+    const b=$("createRoomBtn"); if(b) b.disabled=false;
+    const j=$("confirmJoinBtn"); if(j) j.disabled=false;
+    roomError("");
+  });
+  socket.on("connect_error",err=>{
+    roomError("No se pudo conectar al servidor multijugador. Espera unos segundos y vuelve a intentar.");
+  });
+  socket.on("disconnect",()=>{
+    mySocketId="";
+    roomError("Conexión en vivo perdida. Reconectando…");
+  });
   socket.on("room-created",data=>{roomCode=data.roomCode;roomHost=true;$("roomInfo").classList.remove("hidden");$("roomCodeDisplay").textContent=roomCode;renderRoomPlayers(data.players,data.state.turnId,false);roomError("");});
   socket.on("room-joined",data=>{roomCode=data.roomCode;roomHost=false;$("roomInfo").classList.remove("hidden");$("roomCodeDisplay").textContent=roomCode;renderRoomPlayers(data.players,data.state.turnId,false);roomError("");});
   socket.on("room-update",data=>{renderRoomPlayers(data.players,data.state.turnId,data.state.started);if(data.state.started)renderMultiplayerState(data.state);});
@@ -1031,17 +1043,28 @@ if(socket){
 }
 $("createRoomBtn").addEventListener("click",()=>{
   if(!socket)return roomError("No se pudo conectar al servidor.");
-  socket.emit("create-room",{name:state.player,avatar:state.avatar});
-  $("roomInfo").classList.remove("hidden");
-  $("roomCodeDisplay").textContent="...";
+  const send=()=>{
+    socket.emit("create-room",{name:state.player,avatar:state.avatar});
+    $("roomInfo").classList.remove("hidden");
+    $("roomCodeDisplay").textContent="GENERANDO…";
+    $("roomStatus").textContent="Conectando con el servidor…";
+  };
+  if(socket.connected) send();
+  else { roomError("Conectando al servidor…"); socket.once("connect",send); socket.connect(); }
 });
 $("joinRoomBtn").addEventListener("click",()=>$("joinRoomBox").classList.toggle("hidden"));
 $("confirmJoinBtn").addEventListener("click",()=>{
   const code=$("roomCodeInput").value.trim().toUpperCase();
+  if(!socket)return roomError("No se pudo conectar al servidor.");
   if(!/^[A-Z0-9]{4,6}$/.test(code))return roomError("Escribe un código válido.");
-  socket.emit("join-room",{roomCode:code,name:state.player,avatar:state.avatar});
+  const send=()=>socket.emit("join-room",{roomCode:code,name:state.player,avatar:state.avatar});
+  if(socket.connected) send(); else { roomError("Conectando al servidor…"); socket.once("connect",send); socket.connect(); }
 });
-$("startRoomBtn").addEventListener("click",()=>socket.emit("start-game",{roomCode}));
+$("startRoomBtn").addEventListener("click",()=>{
+  if(!socket||!socket.connected)return roomError("Espera a que se conecte el servidor.");
+  if(!roomCode)return roomError("Primero crea o únete a una sala.");
+  socket.emit("start-game",{roomCode});
+});
 
 startNowBtn.addEventListener("click",()=>{
   introOverlay.classList.add("hidden");

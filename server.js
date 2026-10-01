@@ -37,6 +37,7 @@ function advanceTurn(room){
   if(!room.players.length)return;
   room.turnIndex=(room.turnIndex+1)%room.players.length;
   room.pending=null;
+  room._turnStartPos=null;
 }
 function current(room){return room.players[room.turnIndex]}
 
@@ -47,7 +48,7 @@ function beginCell(room,p){
     sendState(room); return;
   }
   if(qByCell[p.pos]!==undefined){
-    room.pending={kind:"question",playerId:p.id,questionIndex:qByCell[p.pos]};
+    room.pending={kind:"question",playerId:p.id,questionIndex:qByCell[p.pos],fromPos:room._turnStartPos};
     broadcast(room,{type:"question",questionIndex:qByCell[p.pos],playerId:p.id,playerName:p.name});
     sendState(room); return;
   }
@@ -101,20 +102,50 @@ function handle(ws,msg){
     if(room.pending)return ws.send(JSON.stringify({type:"error",message:"Primero termina la acción actual."}));
     if(p.skip){p.skip=false; room.pending={kind:"skip",playerId:p.id}; p.ws.send(JSON.stringify({type:"skipTurn"})); sendState(room); return;}
     const value=1+Math.floor(Math.random()*6);
-    p.pos=Math.min(30,p.pos+value); if(!p.visited.includes(p.pos))p.visited.push(p.pos);
-    broadcast(room,{type:"rolled",value,playerName:p.name}); beginCell(room,p); return;
+    const fromPos=p.pos;
+    const targetPos=Math.min(30,p.pos+value);
+    room._turnStartPos=fromPos;
+    room._diceTargetPos=targetPos;
+    broadcast(room,{type:"rolled",value,playerName:p.name,fromPos,targetPos});
+
+    // Si el dado cae en una casilla de pregunta, NO movemos todavía al jugador.
+    // El avance se confirma únicamente si responde correctamente.
+    if(qByCell[targetPos]!==undefined){
+      room.pending={kind:"question",playerId:p.id,questionIndex:qByCell[targetPos],fromPos,targetPos,dice:value};
+      broadcast(room,{type:"question",questionIndex:qByCell[targetPos],playerId:p.id,playerName:p.name,fromPos,targetPos,dice:value});
+      sendState(room);
+      return;
+    }
+
+    // En casillas normales, el número del dado se aplica exactamente una vez.
+    p.pos=targetPos;
+    if(!p.visited.includes(p.pos))p.visited.push(p.pos);
+    beginCell(room,p); return;
   }
   if(msg.type==="answer"){
     if(!room.started||!room.pending||room.pending.kind!=="question"||room.pending.playerId!==p.id)return;
     const q=(room.config.questions||[])[room.pending.questionIndex]; if(!q)return;
     const idx=Number(msg.index); const correct=idx===Number(q.a);
-    if(correct)p.score+=20; else p.score=Math.max(0,p.score-1);
-    broadcast(room,{type:"answerResult",correct,questionIndex:room.pending.questionIndex,playerId:p.id,playerName:p.name});
+    const questionFromPos=room.pending.fromPos;
+    const questionTargetPos=room.pending.targetPos;
+    if(correct){
+      p.score+=20;
+      // Solo una respuesta correcta hace efectivo el avance indicado por el dado.
+      if(Number.isFinite(questionTargetPos)) p.pos=questionTargetPos;
+      else if(Number.isFinite(questionFromPos)) p.pos=questionFromPos;
+      if(!p.visited.includes(p.pos))p.visited.push(p.pos);
+    }else{
+      p.score=Math.max(0,p.score-1);
+      // Respuesta incorrecta: el jugador NO avanza. Permanece donde estaba.
+      if(Number.isFinite(questionFromPos)) p.pos=questionFromPos;
+    }
+    broadcast(room,{type:"answerResult",correct,questionIndex:room.pending.questionIndex,playerId:p.id,playerName:p.name,fromPos:questionFromPos,targetPos:questionTargetPos,dice:room.pending.dice,position:p.pos});
     room.pending={kind:"questionAnswered",playerId:p.id};
     sendState(room); return;
   }
   if(msg.type==="continueQuestion"){
     if(room.pending?.kind!=="questionAnswered"||room.pending.playerId!==p.id)return;
+    room._turnStartPos=null;
     advanceTurn(room);
     // Tell every connected player to close the question overlay and continue.
     broadcast(room,{type:"turnAdvanced",turnIndex:room.turnIndex});

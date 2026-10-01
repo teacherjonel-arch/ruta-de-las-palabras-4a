@@ -989,7 +989,7 @@ function handleOnlineMessage(msg){
       burstConfetti();sparkleBurst();setStatus((msg.playerName||"El jugador")+" respondió correctamente. +20 puntos.");
     }else{
       const q=questions[msg.questionIndex], letras=["A","B","C","D"];
-      answerResult.innerHTML="❌ INCORRECTA<br><span style=\"display:block;margin-top:8px;font-size:16px;font-weight:700\">Respuesta correcta: "+letras[q.a]+") "+escapeHTML(q.o[q.a])+"</span>";
+      answerResult.innerHTML="❌ INCORRECTA<br><span style=\"display:block;margin-top:8px;font-size:16px;font-weight:700\">Respuesta correcta: "+letras[q.a]+") "+escapeHTML(q.o[q.a])+"</span><span style=\"display:block;margin-top:8px;font-size:15px;font-weight:800\">📍 Te quedas en la casilla "+String(msg.position||state.pos)+"</span>";
       answerResult.classList.add("wrong-anim");answerResult.style.background="#7f1d1d88";answerResult.style.border="1px solid #ef4444";answerResult.style.color="#fee2e2";
       setStatus((msg.playerName||"El jugador")+" respondió incorrectamente. -1 punto.");
     }

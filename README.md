@@ -1,26 +1,28 @@
-# Ruta de las Palabras — 4to A
+# Ruta de las Palabras — 4.º A
 
-Juego educativo web basado en el archivo original `Ruta de las Palabras`.
+Juego educativo multijugador en vivo para 2 a 4 jugadores.
 
 ## Estructura
+- `public/index.html`: juego y panel de administrador.
+- `server.js`: servidor Express + Socket.IO y sincronización en vivo.
+- `data/questions.json`: banco inicial de 15 preguntas.
+- `data/config.json`: configuración inicial.
+- `render.yaml`: configuración para Render.
 
-- `public/index.html` — juego completo.
-- `server.js` — servidor Express y API de configuración.
-- `package.json` — dependencias y comando de inicio.
-- `render.yaml` — configuración para Render.
-- `data/config.json` — configuración local de respaldo.
-- `data/questions.json` — banco inicial de preguntas.
+## Funciones multijugador
+- Crear sala y compartir código.
+- 2 a 4 jugadores por sala.
+- El creador inicia la partida.
+- Turnos sincronizados.
+- Dado y movimientos determinados por el servidor.
+- La misma pregunta aparece simultáneamente en todas las pantallas.
+- Solo responde el jugador cuyo turno está activo.
+- Resultado y puntajes se sincronizan para todos.
+- Eventos y llegada a meta se sincronizan.
 
-## Ejecutar localmente
-
+## Inicio local
 ```bash
 npm install
 npm start
 ```
-
-Abrir `http://localhost:3000`.
-
-## Publicar
-
-Subir todos los archivos a GitHub y conectar el repositorio con Render.
-En Render se debe configurar `ADMIN_KEY` y `DATABASE_URL` cuando se use PostgreSQL para conservar los cambios después de reinicios o despliegues.
+Abrir `http://localhost:10000`.

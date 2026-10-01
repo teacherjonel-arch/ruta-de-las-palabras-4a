@@ -127,7 +127,6 @@ document.querySelectorAll("[data-theme-choice]").forEach(btn=>{
     currentTheme=btn.dataset.themeChoice||"clasico";
     localStorage.setItem(STORAGE_THEME,currentTheme);
     applyTheme();
-    saveServerConfig();
 
 function createAmbientStars(){
   document.querySelectorAll(".floating-star").forEach(e=>e.remove());
@@ -204,7 +203,6 @@ $("bgImageInput").addEventListener("change",()=>{
     try{
       localStorage.setItem(STORAGE_BG,customBackground);
       applyTheme();
-      saveServerConfig();
       alert("Imagen de fondo aplicada correctamente.");
     }catch(e){
       customBackground="";
@@ -219,7 +217,6 @@ $("removeBgBtn").addEventListener("click",()=>{
   localStorage.removeItem(STORAGE_BG);
   $("bgImageInput").value="";
   applyTheme();
-  saveServerConfig();
 });
 
 .admin-wrap{max-width:1100px;margin:auto;padding:28px 4% 50px}
@@ -500,6 +497,11 @@ body::after{
   font-size:13px;
 }
 
+
+/* MULTIJUGADOR */
+#roomOverlay .panel{max-width:680px}
+#roomPlayers .badge{margin-left:6px;font-size:10px}
+.multiplayer-player-list{display:grid;gap:7px}
 </style>
 </head>
 <body>
@@ -593,6 +595,10 @@ body::after{
         <div id="die" class="die">🎲</div>
         <button class="btn primary full" id="rollBtn">🎲 LANZAR DADO</button>
       </div>
+      <div class="card" id="playersCard">
+        <b>👥 Jugadores conectados</b>
+        <div id="livePlayers" class="status" style="min-height:auto;margin-top:8px">Sala no iniciada.</div>
+      </div>
       <div class="card">
         <b>Estado de la partida</b>
         <div id="status" class="status">Estás en la salida. ¡Lanza el dado!</div>
@@ -682,6 +688,32 @@ body::after{
 </div>
 
 
+<!-- SALA MULTIJUGADOR -->
+<div id="roomOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+  <section class="panel">
+    <div class="badge">MULTIJUGADOR EN VIVO · 2 A 4 JUGADORES</div>
+    <h2 style="margin-bottom:6px">🎮 Crear o unirse a una sala</h2>
+    <p style="color:var(--muted);line-height:1.5">Todos los jugadores de la misma sala verán el tablero, los turnos y <b>la misma pregunta simultáneamente</b>.</p>
+    <div class="row2">
+      <button id="createRoomBtn" class="btn primary" type="button">➕ CREAR SALA</button>
+      <button id="joinRoomBtn" class="btn" type="button">🔑 UNIRME A UNA SALA</button>
+    </div>
+    <div id="joinRoomBox" class="hidden" style="margin-top:14px">
+      <label>Código de sala</label>
+      <input id="roomCodeInput" maxlength="6" placeholder="Ej.: A7K2" style="text-transform:uppercase">
+      <button id="confirmJoinBtn" class="btn primary full" style="margin-top:10px" type="button">ENTRAR A LA SALA</button>
+    </div>
+    <div id="roomInfo" class="hidden" style="margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#ffffff08">
+      <div style="font-size:13px;color:var(--muted)">CÓDIGO DE SALA</div>
+      <div id="roomCodeDisplay" style="font-size:38px;font-weight:950;letter-spacing:7px;text-align:center;margin:6px 0">----</div>
+      <div id="roomPlayers" style="line-height:1.7"></div>
+      <button id="startRoomBtn" class="btn primary full hidden" style="margin-top:10px" type="button">🚀 INICIAR PARTIDA</button>
+      <p id="roomStatus" class="admin-note" style="margin-bottom:0"></p>
+    </div>
+    <div id="roomError" class="error"></div>
+  </section>
+</div>
+
 <!-- INSTRUCCIONES ANTES DE JUGAR -->
 <div id="introOverlay" class="overlay hidden" role="dialog" aria-modal="true">
   <section class="panel event">
@@ -739,6 +771,7 @@ body::after{
   <div id="modal"></div>
 </dialog>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
 (()=>{"use strict";
 const $=id=>document.getElementById(id);
@@ -799,7 +832,7 @@ const playerForm=$("playerForm"),playerName=$("playerName"),playerError=$("playe
 const adminForm=$("adminForm"),adminKey=$("adminKey"),adminError=$("adminError");
 const accessTitle=$("accessTitle"),gameBrandTitle=$("gameBrandTitle"),titleInput=$("titleInput");
 const board=$("board"),die=$("die"),rollBtn=$("rollBtn"),scoreEl=$("score"),posEl=$("position"),
-playerLabel=$("playerLabel"),playerAvatarStat=$("playerAvatarStat"),statusEl=$("status");
+playerLabel=$("playerLabel"),playerAvatarStat=$("playerAvatarStat"),statusEl=$("status"),livePlayers=$("livePlayers");
 const qOverlay=$("questionOverlay"),eOverlay=$("eventOverlay"),
 qCourse=$("questionCourse"),qText=$("questionText"),optionsEl=$("options"),
 answerResult=$("answerResult"),continueQuestion=$("continueQuestion"),eventIcon=$("eventIcon"),eventType=$("eventType"),
@@ -811,6 +844,16 @@ const dlg=$("dialog"),modal=$("modal");
 let selectedAvatar="🤖";
 let currentTheme=localStorage.getItem(STORAGE_THEME)||"clasico";
 let customBackground=localStorage.getItem(STORAGE_BG)||"";
+
+// MULTIJUGADOR EN VIVO
+const socket=typeof io!=="undefined"?io():null;
+let multiplayer=false;
+let roomCode="";
+let roomHost=false;
+let mySocketId="";
+let roomState=null;
+let pendingQuestion=null;
+
 
 function applyTheme(){
   document.body.dataset.theme=currentTheme;
@@ -826,7 +869,6 @@ function applyTheme(){
   if(p)p.textContent="Tema actual: "+currentTheme.charAt(0).toUpperCase()+currentTheme.slice(1)+(customBackground?" + imagen personalizada":"");
 }
 applyTheme();
-loadServerConfig();
 
 document.querySelectorAll(".avatar-choice").forEach(btn=>{
   btn.addEventListener("click",()=>{
@@ -843,36 +885,7 @@ function syncTitles(){
   titleInput.value=gameTitle;
 }
 function saveGame(){localStorage.setItem(STORAGE_STATE,JSON.stringify(state))}
-async function saveServerConfig(){
-  try{
-    await fetch('/api/config',{method:'PUT',headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY},body:JSON.stringify({
-      title:gameTitle,theme:currentTheme,background:customBackground,questions
-    })});
-  }catch(e){ console.warn('No se pudo sincronizar con el servidor.',e); }
-}
-function saveQuestions(){localStorage.setItem(STORAGE_Q,JSON.stringify(questions)); saveServerConfig()}
-async function loadServerConfig(){
-  try{
-    const r=await fetch('/api/config',{cache:'no-store'});
-    if(!r.ok)return;
-    const data=await r.json();
-    if(Array.isArray(data.questions)&&data.questions.length){
-      questions=data.questions.map((q,i)=>({
-        c:String(q.c||(i<5?'Lenguaje':i<10?'Habilidad Verbal':'Literatura')),
-        q:String(q.q||''),qi:String(q.qi||''),o:Array.isArray(q.o)?q.o.map(String):['','','',''],
-        oi:Array.isArray(q.oi)?[0,1,2,3].map(n=>String(q.oi[n]||'')):['','','',''],a:Number(q.a)
-      }));
-      localStorage.setItem(STORAGE_Q,JSON.stringify(questions));
-    }
-    if(typeof data.title==='string'&&data.title.trim()) gameTitle=data.title.slice(0,60);
-    if(typeof data.theme==='string'&&['clasico','aventura','espacio','neon','medieval','naturaleza'].includes(data.theme)) currentTheme=data.theme;
-    if(typeof data.background==='string') customBackground=data.background;
-    localStorage.setItem(STORAGE_TITLE,gameTitle);
-    localStorage.setItem(STORAGE_THEME,currentTheme);
-    if(customBackground)localStorage.setItem(STORAGE_BG,customBackground); else localStorage.removeItem(STORAGE_BG);
-    syncTitles(); applyTheme();
-  }catch(e){ console.warn('Modo local: no se pudo cargar la configuración online.',e); }
-}
+function saveQuestions(){localStorage.setItem(STORAGE_Q,JSON.stringify(questions)); if(socket)socket.emit("admin-save-questions",{questions})}
 function goAccess(){
   // Detiene cualquier animación o lanzamiento activo.
   if(window.resetRollTimer){
@@ -915,15 +928,117 @@ function enterPlayer(name){
   if(clean.length<2){playerError.textContent="Escribe tu nombre para comenzar.";playerName.focus();return}
   state={pos:1,score:0,skip:false,visited:[1],player:clean.slice(0,35),avatar:selectedAvatar||"🤖"};
   saveGame();
-
   accessScreen.classList.add("hidden");
   adminShell.classList.add("hidden");
   gameShell.classList.add("hidden");
-
-  introAvatar.textContent=state.avatar;
-  introWelcome.textContent="¡Listo, "+state.player+"! Prepárate para el desafío";
-  introOverlay.classList.remove("hidden");
+  openRoomChooser();
 }
+
+function openRoomChooser(){
+  $("roomOverlay").classList.remove("hidden");
+  $("joinRoomBox").classList.add("hidden");
+  $("roomInfo").classList.add("hidden");
+  $("roomError").textContent="";
+  $("roomCodeInput").value="";
+}
+function roomError(msg){$("roomError").textContent=msg||""}
+function renderRoomPlayers(players=[],turnId="",started=false){
+  const box=$("roomPlayers");
+  box.innerHTML=players.map((pl,i)=>`<div>${pl.avatar||"🤖"} <b>${escapeHTML(pl.name)}</b>${pl.host?" 👑":""}${pl.id===turnId?' <span class=\"badge\">TURNO</span>':''}</div>`).join("");
+  $("startRoomBtn").classList.toggle("hidden",!(roomHost&&!started&&players.length>=2));
+  $("roomStatus").textContent=started?"Partida iniciada.":(players.length<2?"Espera al menos 2 jugadores.":"Ya puedes iniciar la partida.");
+}
+function enterMultiplayerGame(data){
+  multiplayer=true; roomCode=data.roomCode; roomHost=!!data.host; roomState=data.state;
+  $("roomOverlay").classList.add("hidden");
+  gameShell.classList.remove("hidden");
+  renderMultiplayerState(data.state);
+  setStatus(data.state.started?"Partida en vivo. Espera tu turno.":"Sala creada.");
+}
+function renderMultiplayerState(rs){
+  if(!rs)return;
+  roomState=rs;
+  const me=rs.players.find(p=>p.id===mySocketId)||rs.players.find(p=>p.name===state.player);
+  if(me){state.pos=me.pos;state.score=me.score;state.skip=me.skip;state.player=me.name;state.avatar=me.avatar;}
+  board.innerHTML="";
+  for(let n=1;n<=30;n++){
+    const playersHere=rs.players.filter(p=>p.pos===n);
+    const c=document.createElement("div");
+    c.className="cell"+(playersHere.some(p=>p.id===mySocketId)?" current":"")+(rs.visited&&rs.visited.includes(n)?" visited":"");
+    const pieces=playersHere.map(p=>`<span class="piece" title="${escapeHTML(p.name)}" style="font-size:${playersHere.length>1?"27px":"34px"};margin-left:${(playersHere.indexOf(p)-(playersHere.length-1)/2)*24}px">${p.avatar||"🤖"}</span>`).join("");
+    c.innerHTML='<span class="num">'+n+'</span>'+pieces;
+    board.appendChild(c);
+  }
+  scoreEl.textContent=me?me.score:0;
+  posEl.textContent=me?me.pos:1;
+  if(livePlayers) livePlayers.innerHTML=rs.players.map(p=>`${p.avatar||"🤖"} <b>${escapeHTML(p.name)}</b>${p.id===rs.turnId?" 🎯":""}<br><small>${p.score} pts · casilla ${p.pos}</small>`).join("<hr style=\"border:0;border-top:1px solid var(--line);margin:7px 0\">");
+  playerLabel.textContent=me?me.name:"Jugador";
+  playerAvatarStat.textContent=me?(me.avatar||"🤖"):"🤖";
+  rollBtn.disabled=!rs.started || rs.turnId!==mySocketId || !!rs.activeQuestion || !!rs.activeEvent;
+  if(rs.started){
+    const turn=rs.players.find(p=>p.id===rs.turnId);
+    setStatus(turn?`🎯 Turno de ${turn.name}${turn.id===mySocketId?" — ¡lanza el dado!":" — espera tu turno."}`:"Partida en vivo.");
+  }
+}
+function showRemoteQuestion(q,answerData=null){
+  hideOverlays();
+  qCourse.textContent=String(q.c||"").toUpperCase();
+  qText.innerHTML=escapeHTML(q.q)+imgHTML(q.qi||"","question-media","Imagen de la pregunta");
+  optionsEl.innerHTML="";
+  answerResult.className="hidden";answerResult.textContent="";continueQuestion.classList.add("hidden");
+  q.o.forEach((txt,i)=>{
+    const b=document.createElement("button");b.type="button";b.className="option";
+    const media=q.oi&&q.oi[i]?imgHTML(q.oi[i],"option-media","Imagen de la alternativa "+String.fromCharCode(65+i)):"";
+    b.innerHTML=media+'<span><b>'+String.fromCharCode(65+i)+'.</b> '+escapeHTML(txt)+'</span>';
+    b.disabled=!!answerData || (roomState&&roomState.turnId!==mySocketId);
+    b.addEventListener("click",()=>socket.emit("answer-question",{roomCode,answer:i}));
+    optionsEl.appendChild(b);
+  });
+  if(answerData){
+    optionsEl.querySelectorAll("button").forEach(x=>x.disabled=true);
+    answerResult.classList.remove("hidden");
+    answerResult.classList.add(answerData.correct?"correct-anim":"wrong-anim");
+    answerResult.style.background=answerData.correct?"#14532d88":"#7f1d1d88";
+    answerResult.style.border=answerData.correct?"1px solid #22c55e":"1px solid #ef4444";
+    answerResult.style.color=answerData.correct?"#dcfce7":"#fee2e2";
+    answerResult.innerHTML=answerData.correct?"✅ CORRECTA":`❌ INCORRECTA<br><span style="display:block;margin-top:8px;font-size:16px;font-weight:700">Respuesta correcta: ${["A","B","C","D"][q.a]}) ${escapeHTML(q.o[q.a])}</span>`;
+    if(answerData.correct)burstConfetti(); else sparkleBurst();
+    continueQuestion.classList.remove("hidden");
+  }
+  qOverlay.classList.remove("hidden");
+}
+
+if(socket){
+  socket.on("connect",()=>{mySocketId=socket.id;});
+  socket.on("room-created",data=>{roomCode=data.roomCode;roomHost=true;$("roomInfo").classList.remove("hidden");$("roomCodeDisplay").textContent=roomCode;renderRoomPlayers(data.players,data.state.turnId,false);roomError("");});
+  socket.on("room-joined",data=>{roomCode=data.roomCode;roomHost=false;$("roomInfo").classList.remove("hidden");$("roomCodeDisplay").textContent=roomCode;renderRoomPlayers(data.players,data.state.turnId,false);roomError("");});
+  socket.on("room-update",data=>{renderRoomPlayers(data.players,data.state.turnId,data.state.started);if(data.state.started)renderMultiplayerState(data.state);});
+  socket.on("game-started",data=>{enterMultiplayerGame(data);});
+  socket.on("state-update",data=>{renderMultiplayerState(data);});
+  socket.on("dice-rolled",data=>{ if(data.playerId===mySocketId){ die.textContent=["⚀","⚁","⚂","⚃","⚄","⚅"][data.value-1]; } else { setStatus(`🎲 ${data.playerName} lanzó el dado y obtuvo ${data.value}.`); } });
+  socket.on("server-config",cfg=>{ if(cfg.title){gameTitle=cfg.title;localStorage.setItem(STORAGE_TITLE,gameTitle);syncTitles();} if(cfg.theme){currentTheme=cfg.theme;localStorage.setItem(STORAGE_THEME,currentTheme);applyTheme();} });
+  socket.on("question-start",data=>{pendingQuestion=data;showRemoteQuestion(data.question);setStatus(`❓ ${data.playerName} cayó en una casilla de pregunta. Todos pueden verla.`);});
+  socket.on("question-result",data=>{pendingQuestion=data;showRemoteQuestion(data.question,data);setStatus(`${data.playerName} respondió ${data.correct?"correctamente":"incorrectamente"}.`);});
+  socket.on("event-start",data=>{hideOverlays();showEvent(data.event,true);setStatus(data.message||"Evento de casilla.");});
+  socket.on("event-resolved",data=>{hideOverlays();renderMultiplayerState(data.state);});
+  socket.on("turn-changed",data=>{if(data.state)renderMultiplayerState(data.state);});
+  socket.on("game-finished",data=>{renderMultiplayerState(data.state);showEvent({icon:"🏆",type:"META",title:"¡Partida finalizada!",msg:data.message||"Se completó el recorrido."},false);});
+  socket.on("server-questions",data=>{if(Array.isArray(data.questions)){questions=data.questions;saveQuestions();}});
+  socket.on("room-error",msg=>roomError(msg));
+}
+$("createRoomBtn").addEventListener("click",()=>{
+  if(!socket)return roomError("No se pudo conectar al servidor.");
+  socket.emit("create-room",{name:state.player,avatar:state.avatar});
+  $("roomInfo").classList.remove("hidden");
+  $("roomCodeDisplay").textContent="...";
+});
+$("joinRoomBtn").addEventListener("click",()=>$("joinRoomBox").classList.toggle("hidden"));
+$("confirmJoinBtn").addEventListener("click",()=>{
+  const code=$("roomCodeInput").value.trim().toUpperCase();
+  if(!/^[A-Z0-9]{4,6}$/.test(code))return roomError("Escribe un código válido.");
+  socket.emit("join-room",{roomCode:code,name:state.player,avatar:state.avatar});
+});
+$("startRoomBtn").addEventListener("click",()=>socket.emit("start-game",{roomCode}));
 
 startNowBtn.addEventListener("click",()=>{
   introOverlay.classList.add("hidden");
@@ -972,6 +1087,7 @@ const events={
 };
 
 function render(){
+  if(multiplayer&&roomState){renderMultiplayerState(roomState);return;}
   board.innerHTML="";
   for(let n=1;n<=30;n++){
     const c=document.createElement("div");
@@ -1079,14 +1195,24 @@ function resolveCell(){
   if(e.skip)state.skip=true;
   render();showEvent(e);
 }
-continueQuestion.addEventListener("click",()=>{hideOverlays();rollBtn.disabled=false;setStatus("Continúa la partida. Lanza nuevamente.")});
+continueQuestion.addEventListener("click",()=>{
+  if(multiplayer){socket.emit("continue-question",{roomCode});return;}
+  hideOverlays();rollBtn.disabled=false;setStatus("Continúa la partida. Lanza nuevamente.");
+});
 continueEvent.addEventListener("click",()=>{
+  if(multiplayer){socket.emit("continue-event",{roomCode});return;}
   const move=Number(continueEvent.dataset.move||0),extra=continueEvent.dataset.extra==="1";
   hideOverlays();
   if(move)moveTo(state.pos+move,()=>{rollBtn.disabled=false;setStatus("Ahora estás en la casilla "+state.pos+". Lanza nuevamente.")});
   else{rollBtn.disabled=false;setStatus(extra?"🎲 Tienes un lanzamiento extra.":"Continúa la partida. Lanza nuevamente.")}
 });
 rollBtn.addEventListener("click",()=>{
+  if(multiplayer){
+    if(!roomState||roomState.turnId!==mySocketId)return;
+    rollBtn.disabled=true;
+    socket.emit("roll",{roomCode});
+    return;
+  }
   hideOverlays();
   if(state.skip){
     state.skip=false;saveGame();
@@ -1140,6 +1266,7 @@ $("resetGameBtn").addEventListener("click",resetCurrentGame);
 restartFromEventBtn.addEventListener("click",resetCurrentGame);
 
 $("exitPlayerBtn").addEventListener("click",()=>{
+  if(multiplayer&&socket){socket.emit("leave-room",{roomCode});multiplayer=false;roomState=null;roomCode="";roomHost=false;}
   if(window.resetRollTimer){
     clearInterval(window.resetRollTimer);
     window.resetRollTimer=null;
@@ -1163,7 +1290,6 @@ document.querySelectorAll("[data-theme-choice]").forEach(btn=>{
     currentTheme=btn.dataset.themeChoice||"clasico";
     localStorage.setItem(STORAGE_THEME,currentTheme);
     applyTheme();
-    saveServerConfig();
   });
 });
 
@@ -1186,7 +1312,6 @@ $("bgImageInput").addEventListener("change",()=>{
     try{
       localStorage.setItem(STORAGE_BG,customBackground);
       applyTheme();
-      saveServerConfig();
       alert("Imagen de fondo aplicada correctamente.");
     }catch(e){
       customBackground="";
@@ -1201,7 +1326,6 @@ $("removeBgBtn").addEventListener("click",()=>{
   localStorage.removeItem(STORAGE_BG);
   $("bgImageInput").value="";
   applyTheme();
-  saveServerConfig();
 });
 
 function renderAdmin(){
@@ -1244,7 +1368,7 @@ $("closeDialog").addEventListener("click",()=>dlg.close());
 $("saveTitleBtn").addEventListener("click",()=>{
   const t=titleInput.value.trim();
   if(!t){alert("Escribe un título para el juego.");return}
-  gameTitle=t.slice(0,60);localStorage.setItem(STORAGE_TITLE,gameTitle);syncTitles(); saveServerConfig();
+  gameTitle=t.slice(0,60);localStorage.setItem(STORAGE_TITLE,gameTitle);syncTitles(); if(socket)socket.emit("admin-save-config",{title:gameTitle,theme:currentTheme});
   alert("Título guardado correctamente.");
 });
 function editQuestion(i){
@@ -1394,7 +1518,6 @@ $("importBtn").addEventListener("click",()=>{
         saveQuestions();
         localStorage.setItem(STORAGE_TITLE,gameTitle);
         syncTitles();
-        saveServerConfig();
         applyTheme();
         renderAdmin();
         alert("Archivo .JSON importado correctamente.");
@@ -1415,7 +1538,6 @@ $("restoreJsonBtn").addEventListener("click",()=>{
     localStorage.setItem(STORAGE_THEME,currentTheme);
     localStorage.removeItem(STORAGE_BG);
     saveQuestions();
-    saveServerConfig();
     localStorage.setItem(STORAGE_TITLE,gameTitle);
     syncTitles();
     renderAdmin();

@@ -59,8 +59,12 @@ function beginCell(room,p){
   }
   if(e.score)p.score+=e.score;
   if(e.skip)p.skip=true;
-  room.pending={kind:"event",playerId:p.id,move:e.move||0,extra:!!e.extra};
-  p.ws.send(JSON.stringify({type:"event",icon:e.icon,eventType:e.type,title:e.title,message:e.msg,move:e.move||0,extra:!!e.extra}));
+  const eventMove=Number(e.move||0);
+  const eventTarget=Math.max(1,Math.min(30,p.pos+eventMove));
+  // El movimiento indicado por la casilla se calcula UNA sola vez en el servidor.
+  // Al pulsar CONTINUAR se usará exactamente este destino, evitando acumulaciones.
+  room.pending={kind:"event",playerId:p.id,move:eventMove,targetPos:eventTarget,extra:!!e.extra};
+  p.ws.send(JSON.stringify({type:"event",icon:e.icon,eventType:e.type,title:e.title,message:e.msg,move:eventMove,fromPos:p.pos,targetPos:eventTarget,extra:!!e.extra}));
   sendState(room);
 }
 
@@ -120,7 +124,15 @@ function handle(ws,msg){
   if(msg.type==="continueEvent"){
     if(!room.pending||room.pending.playerId!==p.id)return;
     const pending=room.pending;
-    if(pending.move){p.pos=Math.max(1,Math.min(30,p.pos+pending.move));if(!p.visited.includes(p.pos))p.visited.push(p.pos);}
+    if(pending.kind!=="event")return;
+    // Nunca volvemos a sumar move sobre la posición actual: usamos el destino
+    // calculado cuando se descubrió la casilla. Así "avanza 1" significa exactamente +1.
+    if(Number.isFinite(pending.targetPos)){
+      p.pos=pending.targetPos;
+    }else if(pending.move){
+      p.pos=Math.max(1,Math.min(30,p.pos+pending.move));
+    }
+    if(!p.visited.includes(p.pos))p.visited.push(p.pos);
     if(p.pos===30){room.pending={kind:"gameover"};broadcast(room,{type:"gameOver",message:`${p.name} llegó a la meta con ${p.score} puntos.`});sendState(room);return;}
     if(pending.extra){room.pending=null;sendState(room);return;}
     advanceTurn(room); sendState(room); return;

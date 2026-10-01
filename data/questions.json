@@ -1,0 +1,17 @@
+[
+  {"c":"Lenguaje","q":"¿Cuál es la función principal del sustantivo?","o":["Nombrar seres, objetos, lugares o ideas","Expresar una acción","Modificar al verbo","Unir oraciones"],"a":0},
+  {"c":"Lenguaje","q":"¿Cuál de estas palabras es un verbo?","o":["Casa","Azul","Correr","Mesa"],"a":2},
+  {"c":"Lenguaje","q":"¿Cuál palabra es un adjetivo?","o":["Belleza","Hermoso","Correr","Ayer"],"a":1},
+  {"c":"Lenguaje","q":"¿Qué signo se usa al inicio de una pregunta en español?","o":["¡","¿","(","—"],"a":1},
+  {"c":"Lenguaje","q":"¿Cuál oración está correctamente puntuada?","o":["Hola como estás.","Hola, ¿cómo estás?","Hola cómo estás","Hola ¿como estás!"],"a":1},
+  {"c":"Habilidad Verbal","q":"Elige el sinónimo de “rápido”.","o":["Lento","Veloz","Pesado","Quieto"],"a":1},
+  {"c":"Habilidad Verbal","q":"¿Cuál es el antónimo de “generoso”?","o":["Amable","Solidario","Egoísta","Atento"],"a":2},
+  {"c":"Habilidad Verbal","q":"Libro es a leer como canción es a…","o":["Mirar","Escuchar","Pintar","Caminar"],"a":1},
+  {"c":"Habilidad Verbal","q":"¿Qué palabra no pertenece al grupo?","o":["Novela","Cuento","Poema","Telescopio"],"a":3},
+  {"c":"Habilidad Verbal","q":"Ordena lógicamente: semilla, planta, fruto.","o":["Fruto–semilla–planta","Planta–fruto–semilla","Semilla–planta–fruto","Planta–semilla–fruto"],"a":2},
+  {"c":"Literatura","q":"¿Cómo se llama quien cuenta los hechos de una narración?","o":["Autor","Narrador","Lector","Personaje"],"a":1},
+  {"c":"Literatura","q":"¿Qué género literario presenta acciones mediante personajes y diálogos?","o":["Lírico","Dramático","Ensayo","Informativo"],"a":1},
+  {"c":"Literatura","q":"¿Qué recurso compara dos elementos usando la palabra “como”?","o":["Metáfora","Símil","Hipérbole","Personificación"],"a":1},
+  {"c":"Literatura","q":"¿Qué elemento indica dónde ocurren los hechos de una narración?","o":["Espacio","Tema","Narrador","Verso"],"a":0},
+  {"c":"Literatura","q":"¿Cómo se llama cada línea de un poema?","o":["Párrafo","Verso","Escena","Capítulo"],"a":1}
+]
